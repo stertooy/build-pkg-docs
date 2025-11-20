@@ -30,7 +30,7 @@ runs:
         if [ ! -f manual.six ]; then
           cd $GAPROOT
           make html || :
-          # build a HTML version of the GAP reference manual to allow subsequent 
+          # build an HTML version of the GAP reference manual to allow subsequent 
           # steps to pass when building a package manual that contains refs to
           # the GAP reference manual.
           # There is a caveat, though: building the GAP reference manual in turn
@@ -55,10 +55,10 @@ runs:
           [ -d ../../etc ] && echo "../../etc exists" || ln -s $GAPROOT/etc ../../etc
           cd doc && ./make_doc  2>&1 | tee $RUNNER_TEMP/output.log
         elif [ -f "doc/make_doc" ]; then
-          echo "doc/make_doc exists but is not executable!"
+          echo "::error::doc/make_doc exists but is not executable!"
           exit 1
         else
-          echo "no makedoc.g file or doc/make_doc script found!"
+          echo "::error::no makedoc.g file or doc/make_doc script found!"
           exit 1
         fi
       env:
@@ -70,10 +70,10 @@ runs:
       # apart from the warning LaTeX produces when labels may have changed.
       # As discussed in https://github.com/BNasmith/alco/issues/24, the LaTeX
       # label warnings are sometimes false positives. Moreover, GAPDoc can
-      # identify this issues, hence we ignore the ones from LaTeX.
+      # identify these issues, hence we ignore the ones from LaTeX.
       run: |
         if grep -i -e "warning\b" $RUNNER_TEMP/output.log | grep -qiv "LaTeX Warning: Label(s) may have changed."; then
-          echo "Warnings were found when building the documentation!"
+          echo "::error::Warnings were found when building the documentation!"
           grep -i -e "warning\b" $RUNNER_TEMP/output.log
           exit 1
         fi
@@ -93,15 +93,18 @@ runs:
         for doc_info in doc_infos do
           for filename in filenames do
             if not IsExistingFile( doc_info.(filename) ) then
-              Error(
+              Exec(
                 Concatenation(
+                  "echo \"::error::",
                   "The documentation has supposedly been built, but the file ",
                   doc_info.(filename),
                   " specified in PackageDoc.",
                   filename,
-                  " does not exist."
+                  " does not exist.",
+                  "\""
                 )
               );
+              FORCE_QUIT_GAP(1);
             fi;
           od;
         od;
