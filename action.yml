@@ -13,16 +13,33 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: "Validate input"
+      shell: bash
+      run: |
+        validate_boolean() {
+          local input=$1
+          local option_name=$2
+          if ! [[ "$input" =~ ^(true|false)$ ]]; then
+            echo "Invalid value for option $option_name. Expected 'true' or 'false', but found '$input'"
+            exit 1;
+          fi
+        }
+
+        validate_boolean "${{ inputs.use-latex }}" use-latex
+        validate_boolean "${{ inputs.warnings-as-errors }}" warnings-as-errors
+
     - name: "Install tth (for old-style documentation)"
       shell: bash
       run: |
         sudo apt-get update
         sudo apt-get install --no-install-recommends tth
+
     - name: "Install TeX Live"
       if: ${{ inputs.use-latex == 'true' }}
       shell: bash
       run: |
         sudo apt-get install --no-install-recommends texlive-latex-base texlive-latex-recommended texlive-latex-extra texlive-fonts-recommended
+
     - name: "Check for GAP manual"
       shell: bash
       run: |
@@ -39,8 +56,11 @@ runs:
           # install a full package distribution when running tests.
           # See also <https://github.com/gap-actions/build-pkg-docs/issues/22>.
         fi
+
     - name: "Compile documentation"
       shell: bash
+      env:
+        SOURCE_DATE_EPOCH: 0 # prevent time stamps in generated PDF
       run: |
         if [ -f "makedoc.g" ]; then
           $GAP -c 'PushOptions(rec(relativePath:="../../..")); Read("makedoc.g"); QUIT;' 2>&1 | tee $RUNNER_TEMP/output.log
@@ -61,8 +81,7 @@ runs:
           echo "::error::no makedoc.g file or doc/make_doc script found!"
           exit 1
         fi
-      env:
-        SOURCE_DATE_EPOCH: 0 # prevent time stamps in generated PDF
+
     - name: "Check for warnings"
       if: ${{ inputs.warnings-as-errors == 'true' }}
       shell: bash
@@ -77,6 +96,7 @@ runs:
           grep -i -e "warning\b" $RUNNER_TEMP/output.log
           exit 1
         fi
+
     - name: "Check documentation is compiled"
       shell: bash
       run: |
